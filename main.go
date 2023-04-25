@@ -1,17 +1,30 @@
-// CMS import info: https://help.salesforce.com/s/articleView?id=sf.cms_customcontenttypes.htm&type=5
+// JSON file format info: https://help.salesforce.com/s/articleView?id=sf.cms_import_content_json.htm&type=5
 
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
-	"strconv"
 )
 
+type ContentBody struct {
+	Title   string
+	AltText string
+}
+
+type ContentItem struct {
+	ContentType string
+	UrlName     string
+	ContentBody ContentBody
+}
+
+var contentItems []ContentItem
+
 func isImageTypeSupported(fileName string) bool {
-	matched, _ := regexp.MatchString("([^\\s]+(\\.(?i)(jpe?g|png|gif|bmp))$)", fileName)
+	matched, _ := regexp.MatchString("(\\S+(\\.(?i)(jpe?g|png|gif|bmp))$)", fileName)
 	return matched
 }
 
@@ -45,6 +58,24 @@ func main() {
 	}
 
 	for _, file := range files {
-		fmt.Println(file.Name() + "," + strconv.FormatBool(isValidFile(file, cmsImportDir)))
+		if isValidFile(file, cmsImportDir) {
+			contentItem := ContentItem{
+				ContentType: "cms_image",
+				UrlName:     file.Name(),
+				ContentBody: ContentBody{
+					Title:   file.Name(),
+					AltText: "alt text for " + file.Name(),
+				},
+			}
+			contentItems = append(contentItems, contentItem)
+
+		}
+	}
+
+	jsonOutput, err := json.MarshalIndent(contentItems, "", "\t")
+	if err != nil {
+		fmt.Printf("Error: %s", err.Error())
+	} else {
+		fmt.Println(string(jsonOutput))
 	}
 }
