@@ -5,23 +5,35 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type ContentBody struct {
-	Title   string
-	AltText string
+	Title   string `json:"title"`
+	AltText string `json:"altText"`
 }
 
 type ContentItem struct {
-	ContentType string
-	UrlName     string
-	ContentBody ContentBody
+	ContentType string      `json:"type"`
+	UrlName     string      `json:"urlName"`
+	ContentBody ContentBody `json:"body"`
+}
+
+type Content struct {
+	Content []ContentItem `json:"content"`
 }
 
 var contentItems []ContentItem
+
+func reportErrorStdOut(errMsg string) {
+	_, err := os.Stderr.WriteString(errMsg)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func isImageTypeSupported(fileName string) bool {
 	matched, _ := regexp.MatchString("(\\S+(\\.(?i)(jpe?g|png|gif|bmp))$)", fileName)
@@ -30,19 +42,19 @@ func isImageTypeSupported(fileName string) bool {
 
 func isValidFile(file os.DirEntry, cmsImportDir string) bool {
 	if file.IsDir() {
-		os.Stderr.WriteString(file.Name() + " is a directory, skipping\n")
+		reportErrorStdOut(file.Name() + " is a directory, skipping\n")
 		return false
 	}
 
 	// per SFDC docs, image files cannot be >25MB
 	fileInfo, _ := os.Lstat(cmsImportDir + "/_media/" + file.Name())
 	if fileInfo.Size() > 2.5e+7 {
-		os.Stderr.WriteString(file.Name() + " is greater than 25MB, skipping\n")
+		reportErrorStdOut(file.Name() + " is greater than 25MB, skipping\n")
 		return false
 	}
 
 	if !isImageTypeSupported(file.Name()) {
-		os.Stderr.WriteString(file.Name() + " is of a non-supported file type, skipping\n")
+		reportErrorStdOut(file.Name() + " is of a non-supported file type, skipping\n")
 		return false
 	}
 	return true
@@ -51,20 +63,20 @@ func isValidFile(file os.DirEntry, cmsImportDir string) bool {
 func main() {
 	args := os.Args
 	cmsImportDir := args[1]
-
 	files, err := os.ReadDir(cmsImportDir + "/_media")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	for _, file := range files {
 		if isValidFile(file, cmsImportDir) {
+			fileNameWithoutExtension := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
 			contentItem := ContentItem{
 				ContentType: "cms_image",
-				UrlName:     file.Name(),
+				UrlName:     fileNameWithoutExtension,
 				ContentBody: ContentBody{
-					Title:   file.Name(),
-					AltText: "alt text for " + file.Name(),
+					Title:   fileNameWithoutExtension,
+					AltText: "alt text for " + fileNameWithoutExtension,
 				},
 			}
 			contentItems = append(contentItems, contentItem)
@@ -72,7 +84,8 @@ func main() {
 		}
 	}
 
-	jsonOutput, err := json.MarshalIndent(contentItems, "", "\t")
+	contentContainer := Content{Content: contentItems}
+	jsonOutput, err := json.MarshalIndent(contentContainer, "", "   ")
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	} else {
