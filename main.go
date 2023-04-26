@@ -1,19 +1,25 @@
-// JSON file format info: https://help.salesforce.com/s/articleView?id=sf.cms_import_content_json.htm&type=5
+// JSON file format info:
+// - https://help.salesforce.com/s/articleView?id=sf.cms_import_content_json.htm&type=5
+// - https://help.salesforce.com/s/articleView?id=sf.cms_import_export_overview.htm&type=5
 
 package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
 
+type ContentSource struct {
+	Source string `json:"ref"`
+}
+
 type ContentBody struct {
-	Title   string `json:"title"`
-	AltText string `json:"altText"`
+	Title         string        `json:"title"`
+	AltText       string        `json:"altText"`
+	ContentSource ContentSource `json:"source"`
 }
 
 type ContentItem struct {
@@ -63,6 +69,7 @@ func isValidFile(file os.DirEntry, cmsImportDir string) bool {
 func main() {
 	args := os.Args
 	cmsImportDir := args[1]
+	jsonFilename := args[2]
 	files, err := os.ReadDir(cmsImportDir + "/_media")
 	if err != nil {
 		panic(err)
@@ -75,8 +82,9 @@ func main() {
 				ContentType: "cms_image",
 				UrlName:     fileNameWithoutExtension,
 				ContentBody: ContentBody{
-					Title:   fileNameWithoutExtension,
-					AltText: "alt text for " + fileNameWithoutExtension,
+					Title:         fileNameWithoutExtension,
+					AltText:       "alt text for " + fileNameWithoutExtension,
+					ContentSource: ContentSource{file.Name()},
 				},
 			}
 			contentItems = append(contentItems, contentItem)
@@ -87,8 +95,8 @@ func main() {
 	contentContainer := Content{Content: contentItems}
 	jsonOutput, err := json.MarshalIndent(contentContainer, "", "   ")
 	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
+		reportErrorStdOut(err.Error())
 	} else {
-		fmt.Println(string(jsonOutput))
+		err = os.WriteFile(cmsImportDir+"/"+jsonFilename, jsonOutput, 0644)
 	}
 }
