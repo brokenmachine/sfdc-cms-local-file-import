@@ -35,6 +35,12 @@ type Content struct {
 
 var contentItems []ContentItem
 
+var nonAlphanumericRegex = regexp.MustCompile(`[^\p{L}\p{N} ]+`)
+
+func removeNonAlphaChars(str string) string {
+	return nonAlphanumericRegex.ReplaceAllString(str, "")
+}
+
 func reportErrorStdOut(errMsg string) {
 	_, err := os.Stderr.WriteString(errMsg)
 	if err != nil {
@@ -47,9 +53,18 @@ func isImageTypeSupported(fileName string) bool {
 	return matched
 }
 
+func isHiddenFile(filename string) bool {
+	return filename[0] == '.'
+}
+
 func isValidFile(file os.DirEntry, cmsImportDir string, importType string) bool {
 	if file.IsDir() {
 		reportErrorStdOut(file.Name() + " is a directory, skipping\n")
+		return false
+	}
+
+	if isHiddenFile(file.Name()) {
+		reportErrorStdOut(file.Name() + " is a hidden file, skipping\n")
 		return false
 	}
 
@@ -93,9 +108,11 @@ func main() {
 	for _, file := range files {
 		if isValidFile(file, cmsImportDir, importType) {
 			fileNameWithoutExtension := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+			urlName := strings.ReplaceAll(strings.ToLower(removeNonAlphaChars(fileNameWithoutExtension)), " ", "-")
+			println("urlName: " + urlName)
 			contentItem := ContentItem{
 				ContentType: importType,
-				UrlName:     fileNameWithoutExtension,
+				UrlName:     urlName,
 				ContentBody: ContentBody{
 					Title:         fileNameWithoutExtension,
 					AltText:       "alt text for " + fileNameWithoutExtension,
