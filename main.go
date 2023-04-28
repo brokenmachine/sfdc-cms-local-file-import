@@ -109,7 +109,6 @@ func main() {
 		if isValidFile(file, cmsImportDir, importType) {
 			fileNameWithoutExtension := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
 			urlName := strings.ReplaceAll(strings.ToLower(removeNonAlphaChars(fileNameWithoutExtension)), " ", "-")
-			println("urlName: " + urlName)
 			contentItem := ContentItem{
 				ContentType: importType,
 				UrlName:     urlName,
